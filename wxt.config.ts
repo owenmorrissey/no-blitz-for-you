@@ -10,10 +10,12 @@ export default defineConfig({
     host_permissions: ['*://*.chess.com/*', '*://*.lichess.org/*'],
     browser_specific_settings: {
       gecko: {
-        // Required by Firefox before publishing to AMO. Replace with a real
-        // id (any unique string, conventionally an email-shaped one) when
-        // you're ready to submit — not needed for local testing.
-        id: 'blockchess@example.com',
+        // Required by Firefox for publishing to AMO. UUID format (Mozilla's
+        // current recommendation over email-style ids, since it can't
+        // collide with anyone else's). Generated once with `uuidgen` —
+        // don't regenerate this, it's this extension's permanent identity
+        // on AMO once submitted.
+        id: '{2cad3a61-5ce2-4cb8-a105-04ab300d686b}',
       },
     },
   },
