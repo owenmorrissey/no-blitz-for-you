@@ -18,6 +18,12 @@ export default defineConfig({
         // don't regenerate this, it's this extension's permanent identity
         // on AMO once submitted.
         id: '{2cad3a61-5ce2-4cb8-a105-04ab300d686b}',
+        // Required by Firefox as of Nov 2025. We don't send any data
+        // anywhere — settings live entirely in browser.storage.sync, no
+        // analytics, no network requests.
+        data_collection_permissions: {
+          required: ['none'],
+        },
       },
     },
   },
