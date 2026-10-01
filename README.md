@@ -13,7 +13,8 @@ A browser extension to stop you from impulsively starting a chess game.
 
 ## How it works
 
-No chess.com/lichess API access is needed for this.
+No chess.com/lichess API access is needed for this, and there's no
+background script at all — just two content scripts and a popup.
 
 - **chess.com**: a content script (`entrypoints/chesscom.content.ts`)
   intercepts the click that starts a game — on `/play/online`, the home page
@@ -34,14 +35,13 @@ No chess.com/lichess API access is needed for this.
   classical classification (`utils/lichess-speed.ts`) is copied directly
   from lichess's own open-source formula (`clockToSpeed` in
   lichess-org/lila), not guessed.
-- **Both sites**: the background script (`entrypoints/background.ts`)
-  additionally watches the active tab's URL (`webNavigation` API) and
-  redirects if it ever lands on a live-game URL anyway (`utils/game-urls.ts`)
-  — a backstop for any entry point the content scripts don't know about yet
-  (e.g. accepting an incoming challenge, lichess's custom-game modal). This
-  path has no time-class info, so it always blocks regardless of the
-  time-control settings, except for games the content scripts already
-  explicitly approved (see the "allow window" note in Status below).
+
+Every game-start action we know about is handled entirely at the click, by
+the content script that's already on the page — there's no second system to
+reconcile it with. The tradeoff: entry points we haven't taught a content
+script to recognize (see Status below) have *no* interception at all, not a
+weaker fallback — there's no click to hook into once you're past one of
+those, so nothing redirects you.
 
 Settings (enabled/disabled, redirect target, which chess.com time classes
 and lichess speeds to block) are stored via `browser.storage.sync` and
@@ -69,23 +69,10 @@ in the popup (default: block bullet + blitz, allow rapid):
   button in the same button group, so we read the time class off that
   sibling instead.
 
-### Both sites — URL-based backstop, NOT time-class aware
+### chess.com — NOT covered at all (plays normally, no redirect)
 
-`entrypoints/background.ts` watches the active tab's URL and redirects if it
-ever lands on a live-game URL (`utils/game-urls.ts`), regardless of *why* it
-got there. This exists to catch entry points the content script doesn't know
-about yet (e.g. accepting an incoming challenge, or any lichess game at all —
-see below). It has no way to know the time class, so when it fires, it
-**always blocks**, even if rapid is otherwise allowed.
-
-To avoid double-handling games the content script already approved, the
-content script sends a `chesscom-game-allowed` message when it lets a click
-through, which suppresses the backstop for that tab for 5 minutes
-(`ALLOW_WINDOW_MS` in `background.ts`). Known edge case: if that same tab
-somehow reaches a *different*, normally-blocked live game within that
-5-minute window through a path the content script doesn't intercept, the
-backstop would incorrectly let it through too. Low risk in practice, not
-actively guarded against.
+- Accepting an incoming challenge
+- Puzzle-rush-adjacent promos and anything else not in the list above
 
 ### lichess — click-intercepted, speed-aware, but only the homepage pool
 
@@ -95,14 +82,18 @@ aware per the `ultraBullet`/`bullet`/`blitz`/`rapid`/`classical` checkboxes
 in the popup (default: block ultraBullet + bullet + blitz, allow rapid +
 classical).
 
-NOT yet covered by click interception, so these fall through to the
-URL-based backstop (always blocks, no speed awareness):
+### lichess — NOT covered at all (plays normally, no redirect)
+
 - the "Custom" pool option (opens a modal to configure a one-off game/seek)
 - challenging a friend, or accepting an incoming challenge
 - the `#pool/<id>` URL-hash auto-join lichess uses for shared pool links
   (`joinPoolFromLocationHash` in lila's `ctrl.ts`) — this never fires a
-  click at all, so no click-interception approach can catch it; would need
-  its own handling (e.g. watching for the hash) if it matters in practice.
+  click at all, so click interception structurally can't catch it; would
+  need its own handling (e.g. watching for the hash) if it matters in
+  practice.
+
+This is a deliberate tradeoff, not a gap we're unaware of: see "How it
+works" above for why there's no fallback for these.
 
 ## Stack
 
@@ -111,12 +102,10 @@ URL-based backstop (always blocks, no speed awareness):
 
 ## Project layout
 
-- `entrypoints/background.ts` — URL-based backstop, watches navigation
 - `entrypoints/chesscom.content.ts` — intercepts chess.com's "start game" clicks before matchmaking
 - `entrypoints/lichess.content.ts` — intercepts lichess's pool-pairing clicks before matchmaking
 - `entrypoints/popup/` — toolbar popup UI for settings
 - `utils/config.ts` — settings schema + storage read/write
-- `utils/game-urls.ts` — URL pattern matching for "a live game just started" (background.ts backstop)
 - `utils/chesscom-triggers.ts` — DOM matching for chess.com's various "start game" buttons/links
 - `utils/lichess-triggers.ts` — DOM matching for lichess's pool-pairing buttons
 - `utils/time-class.ts` — chess.com bullet/blitz/rapid classification from base time in seconds
@@ -151,10 +140,17 @@ point. Next steps, roughly in priority order:
 
 - **lichess: cover more entry points.** Custom game modal, challenge a
   friend, accept an incoming challenge, `#pool/<id>` hash auto-join — see
-  the lichess Status section above for specifics on each.
+  the lichess Status section above for specifics on each. Currently none of
+  these are blocked at all.
 - **chess.com: cover more entry points** in the same vein — challenge a
   friend, accept an incoming challenge, puzzle-rush-adjacent promos, ...
-  (anything not listed in the chess.com Status section above).
-- **Replace placeholder icons** in `public/icon/` (currently WXT's default) and pick a real Firefox extension id in `wxt.config.ts` before publishing.
+  (anything not listed in the chess.com Status section above). Currently
+  none of these are blocked at all either.
+- **Config-load race at content-script startup.** `installGameStartGuard`
+  (`utils/game-start-guard.ts`) uses `DEFAULT_CONFIG` until the async
+  `getConfig()` resolves. A click in that window would use defaults instead
+  of your actual settings. The window is tiny in practice (a local storage
+  read, resolved well before a human can click anything), but it's not
+  nothing.
 - Chesscom lessons/chessable as additional redirect target options.
 - Publish to Chrome Web Store / Firefox Add-ons (needs developer accounts, listing assets, review).

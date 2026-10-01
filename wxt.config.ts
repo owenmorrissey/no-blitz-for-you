@@ -6,8 +6,10 @@ export default defineConfig({
     name: 'Blockchess',
     description:
       'Stops you from impulsively starting a live chess game — redirects to puzzles instead.',
-    permissions: ['storage', 'webNavigation', 'tabs'],
-    host_permissions: ['*://*.chess.com/*', '*://*.lichess.org/*'],
+    // No host_permissions needed: content scripts run per their own
+    // `matches` field, and they navigate via `window.location`, not the
+    // tabs API — no background script, no cross-origin requests.
+    permissions: ['storage'],
     browser_specific_settings: {
       gecko: {
         // Required by Firefox for publishing to AMO. UUID format (Mozilla's

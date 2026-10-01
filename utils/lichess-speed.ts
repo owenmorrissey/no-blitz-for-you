@@ -4,7 +4,14 @@
 // formula: total = initial seconds + increment seconds * 40.
 export type LichessSpeed = 'ultraBullet' | 'bullet' | 'blitz' | 'rapid' | 'classical';
 
-export function classifySpeed(initialSeconds: number, incrementSeconds: number): LichessSpeed {
+export function classifySpeed(
+  initialSeconds: number,
+  incrementSeconds: number,
+): LichessSpeed | 'unknown' {
+  // Same NaN guard as utils/time-class.ts's classifyByBaseSeconds — without
+  // it, a NaN input falls through every `< n` check to 'classical' (allowed
+  // by default), failing open instead of closed.
+  if (!Number.isFinite(initialSeconds) || !Number.isFinite(incrementSeconds)) return 'unknown';
   const total = initialSeconds + incrementSeconds * 40;
   if (total < 30) return 'ultraBullet';
   if (total < 180) return 'bullet';
