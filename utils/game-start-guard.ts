@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, REDIRECT_URLS, getConfig, type Config } from './config';
+import { DEFAULT_CONFIG, REDIRECT_URLS, getConfig, type Config, type RedirectTarget } from './config';
 
 // Shared by every per-site content script (chesscom.content.ts,
 // lichess.content.ts, ...): cache config locally (storage reads are async,
@@ -9,6 +9,7 @@ import { DEFAULT_CONFIG, REDIRECT_URLS, getConfig, type Config } from './config'
 export function installGameStartGuard<Match>(options: {
   matchClick: (target: HTMLElement | null) => Match | null;
   shouldBlock: (config: Config, match: Match) => boolean;
+  redirectTarget: (config: Config) => RedirectTarget;
 }): void {
   let config: Config = DEFAULT_CONFIG;
   getConfig().then((c) => {
@@ -34,7 +35,7 @@ export function installGameStartGuard<Match>(options: {
       // own click handler, so matchmaking never starts.
       event.preventDefault();
       event.stopImmediatePropagation();
-      window.location.href = REDIRECT_URLS[config.redirectTarget];
+      window.location.href = REDIRECT_URLS[options.redirectTarget(config)];
     },
     true, // capture
   );

@@ -16,6 +16,7 @@ export default defineContentScript({
     installGameStartGuard({
       matchClick: matchChesscomGameStartClick,
       shouldBlock: (config, match) => shouldBlockChesscomTimeClass(config, match.timeClass),
+      redirectTarget: (config) => config.chesscomRedirectTarget,
     });
   },
 });

@@ -17,6 +17,14 @@ const LICHESS_SPEEDS: { value: LichessSpeed; label: string }[] = [
   { value: 'classical', label: 'Classical' },
 ];
 
+const REDIRECT_TARGETS: { value: RedirectTarget; label: string }[] = [
+  { value: 'lichess-puzzles', label: 'Lichess puzzles' },
+  { value: 'lichess-practice', label: 'Lichess practice' },
+  { value: 'chesscom-puzzles', label: 'Chess.com puzzles' },
+  { value: 'chesscom-lessons', label: 'Chess.com lessons' },
+  { value: 'block', label: 'Just block (blank page)' },
+];
+
 function checkboxGroup(className: string, options: { value: string; label: string }[]): string {
   return options
     .map(
@@ -29,39 +37,46 @@ function checkboxGroup(className: string, options: { value: string; label: strin
     .join('');
 }
 
+function redirectSelect(id: string): string {
+  const options = REDIRECT_TARGETS.map(
+    ({ value, label }) => `<option value="${value}">${label}</option>`,
+  ).join('');
+  return `
+    <label class="row">
+      <span>Redirect to</span>
+      <select id="${id}">${options}</select>
+    </label>`;
+}
+
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 app.innerHTML = `
   <div class="card">
-    <h1>Blockchess</h1>
+    <h1>No blitz for you!</h1>
     <label class="row">
       <input type="checkbox" id="enabled" />
-      Redirect live games to puzzles
-    </label>
-    <label class="row">
-      <span>Redirect to</span>
-      <select id="redirectTarget">
-        <option value="lichess-puzzles">Lichess puzzles</option>
-        <option value="chesscom-puzzles">Chess.com puzzles</option>
-        <option value="chesscom-lessons">Chess.com lessons</option>
-        <option value="block">Just block (blank page)</option>
-      </select>
+      Activate extension
     </label>
     <fieldset class="time-classes">
       <legend>Block on chess.com</legend>
       ${checkboxGroup('chesscom-checkbox', CHESSCOM_TIME_CLASSES)}
       <p class="hint">Daily/correspondence games are never blocked.</p>
+      ${redirectSelect('chesscomRedirectTarget')}
     </fieldset>
     <fieldset class="time-classes">
       <legend>Block on lichess</legend>
       ${checkboxGroup('lichess-checkbox', LICHESS_SPEEDS)}
       <p class="hint">Correspondence games are never blocked.</p>
+      ${redirectSelect('lichessRedirectTarget')}
     </fieldset>
   </div>
 `;
 
 const enabledInput = document.querySelector<HTMLInputElement>('#enabled')!;
-const redirectTargetSelect = document.querySelector<HTMLSelectElement>('#redirectTarget')!;
+const chesscomRedirectSelect =
+  document.querySelector<HTMLSelectElement>('#chesscomRedirectTarget')!;
+const lichessRedirectSelect =
+  document.querySelector<HTMLSelectElement>('#lichessRedirectTarget')!;
 const chesscomCheckboxes = document.querySelectorAll<HTMLInputElement>('.chesscom-checkbox');
 const lichessCheckboxes = document.querySelectorAll<HTMLInputElement>('.lichess-checkbox');
 
@@ -73,7 +88,8 @@ function checkedValues<T extends string>(checkboxes: NodeListOf<HTMLInputElement
 
 const config = await getConfig();
 enabledInput.checked = config.enabled;
-redirectTargetSelect.value = config.redirectTarget;
+chesscomRedirectSelect.value = config.chesscomRedirectTarget;
+lichessRedirectSelect.value = config.lichessRedirectTarget;
 chesscomCheckboxes.forEach((checkbox) => {
   checkbox.checked = config.blockedChesscomTimeClasses.includes(checkbox.value as TimeClass);
 });
@@ -84,13 +100,15 @@ lichessCheckboxes.forEach((checkbox) => {
 async function persist() {
   await setConfig({
     enabled: enabledInput.checked,
-    redirectTarget: redirectTargetSelect.value as RedirectTarget,
+    chesscomRedirectTarget: chesscomRedirectSelect.value as RedirectTarget,
+    lichessRedirectTarget: lichessRedirectSelect.value as RedirectTarget,
     blockedChesscomTimeClasses: checkedValues<TimeClass>(chesscomCheckboxes),
     blockedLichessSpeeds: checkedValues<LichessSpeed>(lichessCheckboxes),
   });
 }
 
 enabledInput.addEventListener('change', persist);
-redirectTargetSelect.addEventListener('change', persist);
+chesscomRedirectSelect.addEventListener('change', persist);
+lichessRedirectSelect.addEventListener('change', persist);
 chesscomCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', persist));
 lichessCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', persist));

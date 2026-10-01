@@ -14,6 +14,7 @@ export default defineContentScript({
     installGameStartGuard({
       matchClick: matchLichessGameStartClick,
       shouldBlock: (config, match) => shouldBlockLichessSpeed(config, match.speed),
+      redirectTarget: (config) => config.lichessRedirectTarget,
     });
   },
 });

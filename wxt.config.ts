@@ -3,7 +3,7 @@ import { defineConfig } from 'wxt';
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   manifest: {
-    name: 'Blockchess',
+    name: 'No blitz for you!',
     description:
       'Stops you from impulsively starting a live chess game — redirects to puzzles instead.',
     // No host_permissions needed: content scripts run per their own

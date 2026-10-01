@@ -1,5 +1,5 @@
 {
-  "name": "blockchess",
+  "name": "no-blitz-for-you",
   "description": "Stops you from impulsively starting a live chess game — redirects to puzzles instead.",
   "private": true,
   "version": "0.0.0",

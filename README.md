@@ -1,4 +1,4 @@
-# Blockchess
+# No blitz for you!
 
 A browser extension to stop you from impulsively starting a chess game.
 
@@ -43,9 +43,11 @@ script to recognize (see Status below) have *no* interception at all, not a
 weaker fallback — there's no click to hook into once you're past one of
 those, so nothing redirects you.
 
-Settings (enabled/disabled, redirect target, which chess.com time classes
-and lichess speeds to block) are stored via `browser.storage.sync` and
-edited from the toolbar popup (`entrypoints/popup`).
+Settings (enabled/disabled, which chess.com time classes and lichess speeds
+to block, and each site's own redirect target — chess.com defaults to
+chess.com puzzles, lichess to lichess puzzles, independently configurable)
+are stored via `browser.storage.sync` and edited from the toolbar popup
+(`entrypoints/popup`).
 
 ## Status: what's actually implemented
 
