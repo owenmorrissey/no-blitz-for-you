@@ -135,6 +135,31 @@ npm run zip             # Chrome production zip, in .output/
 npm run zip:firefox     # Firefox production zip, in .output/
 ```
 
+## Build instructions for reviewers (Firefox AMO)
+
+This extension is built with [WXT](https://wxt.dev) on top of Vite, which
+bundles and minifies the shipped JS — per [Mozilla's source code submission
+policy](https://extensionworkshop.com/documentation/publish/source-code-submission/),
+that requires submitting source alongside build instructions to reproduce
+it. `npm run zip:firefox` generates both `*-firefox.zip` (the build to
+install) and `*-sources.zip` (everything below) automatically.
+
+- **Environment**: no special requirements — any reasonably recent Node.js
+  (built and tested with Node 24.2.0 / npm 11.3.0, close to AMO's default
+  review environment of Node 24.14.0 / npm 11.9.0 at time of writing).
+- **Dependencies**: entirely public npm packages, versions locked in
+  `package-lock.json` — no private registries, no custom/vendored tooling.
+- **Build**:
+  ```sh
+  npm install
+  npm run build:firefox
+  ```
+- **Output**: `.output/firefox-mv2/`, which should match the submitted
+  build exactly — diff it against the contents of the uploaded
+  `*-firefox.zip`.
+- **No obfuscation**: only Vite's standard minification. Nothing transforms
+  code to intentionally resist reading.
+
 # TODO
 
 See the "Status" section above for the precise current behavior per entry
