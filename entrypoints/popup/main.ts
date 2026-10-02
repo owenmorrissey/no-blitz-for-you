@@ -25,76 +25,85 @@ const REDIRECT_TARGETS: { value: RedirectTarget; label: string }[] = [
   { value: 'block', label: 'Just block (blank page)' },
 ];
 
-function checkboxGroup(className: string, options: { value: string; label: string }[]): string {
-  return options
-    .map(
-      ({ value, label }) => `
-      <label class="row">
-        <input type="checkbox" class="${className}" value="${value}" />
-        ${label}
-      </label>`,
-    )
-    .join('');
+// Small DOM-builder helper so the popup never touches innerHTML — assigns
+// properties (safe: .textContent, .value, .className, ...) and appends
+// children via Element.append(), which treats string args as text nodes,
+// not markup.
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Record<string, unknown> = {},
+  children: (Node | string)[] = [],
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  Object.assign(node, props);
+  node.append(...children);
+  return node;
 }
 
-function redirectSelect(id: string): string {
-  const options = REDIRECT_TARGETS.map(
-    ({ value, label }) => `<option value="${value}">${label}</option>`,
-  ).join('');
-  return `
-    <label class="row">
-      <span>Redirect to</span>
-      <select id="${id}">${options}</select>
-    </label>`;
+function checkboxRow(className: string, value: string, label: string): HTMLLabelElement {
+  const input = el('input', { type: 'checkbox', className, value });
+  return el('label', { className: 'row' }, [input, ` ${label}`]);
 }
+
+function redirectSelectRow(id: string): { row: HTMLLabelElement; select: HTMLSelectElement } {
+  const select = el(
+    'select',
+    { id },
+    REDIRECT_TARGETS.map(({ value, label }) => el('option', { value, textContent: label })),
+  );
+  const row = el('label', { className: 'row' }, [el('span', {}, ['Redirect to']), select]);
+  return { row, select };
+}
+
+const chesscomCheckboxRows = CHESSCOM_TIME_CLASSES.map(({ value, label }) =>
+  checkboxRow('chesscom-checkbox', value, label),
+);
+const lichessCheckboxRows = LICHESS_SPEEDS.map(({ value, label }) =>
+  checkboxRow('lichess-checkbox', value, label),
+);
+const { row: chesscomRedirectRow, select: chesscomRedirectSelect } =
+  redirectSelectRow('chesscomRedirectTarget');
+const { row: lichessRedirectRow, select: lichessRedirectSelect } =
+  redirectSelectRow('lichessRedirectTarget');
+
+const enabledInput = el('input', { type: 'checkbox', id: 'enabled' });
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
+app.append(
+  el('div', { className: 'card' }, [
+    el('h1', {}, ['No blitz for you!']),
+    el('label', { className: 'row' }, [enabledInput, ' Activate extension']),
+    el('fieldset', { className: 'time-classes' }, [
+      el('legend', {}, ['Block on chess.com']),
+      ...chesscomCheckboxRows,
+      el('p', { className: 'hint' }, ['Daily/correspondence games are never blocked.']),
+      chesscomRedirectRow,
+    ]),
+    el('fieldset', { className: 'time-classes' }, [
+      el('legend', {}, ['Block on lichess']),
+      ...lichessCheckboxRows,
+      el('p', { className: 'hint' }, ['Correspondence games are never blocked.']),
+      lichessRedirectRow,
+    ]),
+  ]),
+);
 
-app.innerHTML = `
-  <div class="card">
-    <h1>No blitz for you!</h1>
-    <label class="row">
-      <input type="checkbox" id="enabled" />
-      Activate extension
-    </label>
-    <fieldset class="time-classes">
-      <legend>Block on chess.com</legend>
-      ${checkboxGroup('chesscom-checkbox', CHESSCOM_TIME_CLASSES)}
-      <p class="hint">Daily/correspondence games are never blocked.</p>
-      ${redirectSelect('chesscomRedirectTarget')}
-    </fieldset>
-    <fieldset class="time-classes">
-      <legend>Block on lichess</legend>
-      ${checkboxGroup('lichess-checkbox', LICHESS_SPEEDS)}
-      <p class="hint">Correspondence games are never blocked.</p>
-      ${redirectSelect('lichessRedirectTarget')}
-    </fieldset>
-  </div>
-`;
+const chesscomCheckboxInputs = chesscomCheckboxRows.map((row) => row.querySelector('input')!);
+const lichessCheckboxInputs = lichessCheckboxRows.map((row) => row.querySelector('input')!);
 
-const enabledInput = document.querySelector<HTMLInputElement>('#enabled')!;
-const chesscomRedirectSelect =
-  document.querySelector<HTMLSelectElement>('#chesscomRedirectTarget')!;
-const lichessRedirectSelect =
-  document.querySelector<HTMLSelectElement>('#lichessRedirectTarget')!;
-const chesscomCheckboxes = document.querySelectorAll<HTMLInputElement>('.chesscom-checkbox');
-const lichessCheckboxes = document.querySelectorAll<HTMLInputElement>('.lichess-checkbox');
-
-function checkedValues<T extends string>(checkboxes: NodeListOf<HTMLInputElement>): T[] {
-  return Array.from(checkboxes)
-    .filter((checkbox) => checkbox.checked)
-    .map((checkbox) => checkbox.value as T);
+function checkedValues<T extends string>(inputs: HTMLInputElement[]): T[] {
+  return inputs.filter((input) => input.checked).map((input) => input.value as T);
 }
 
 const config = await getConfig();
 enabledInput.checked = config.enabled;
 chesscomRedirectSelect.value = config.chesscomRedirectTarget;
 lichessRedirectSelect.value = config.lichessRedirectTarget;
-chesscomCheckboxes.forEach((checkbox) => {
-  checkbox.checked = config.blockedChesscomTimeClasses.includes(checkbox.value as TimeClass);
+chesscomCheckboxInputs.forEach((input) => {
+  input.checked = config.blockedChesscomTimeClasses.includes(input.value as TimeClass);
 });
-lichessCheckboxes.forEach((checkbox) => {
-  checkbox.checked = config.blockedLichessSpeeds.includes(checkbox.value as LichessSpeed);
+lichessCheckboxInputs.forEach((input) => {
+  input.checked = config.blockedLichessSpeeds.includes(input.value as LichessSpeed);
 });
 
 async function persist() {
@@ -102,13 +111,13 @@ async function persist() {
     enabled: enabledInput.checked,
     chesscomRedirectTarget: chesscomRedirectSelect.value as RedirectTarget,
     lichessRedirectTarget: lichessRedirectSelect.value as RedirectTarget,
-    blockedChesscomTimeClasses: checkedValues<TimeClass>(chesscomCheckboxes),
-    blockedLichessSpeeds: checkedValues<LichessSpeed>(lichessCheckboxes),
+    blockedChesscomTimeClasses: checkedValues<TimeClass>(chesscomCheckboxInputs),
+    blockedLichessSpeeds: checkedValues<LichessSpeed>(lichessCheckboxInputs),
   });
 }
 
 enabledInput.addEventListener('change', persist);
 chesscomRedirectSelect.addEventListener('change', persist);
 lichessRedirectSelect.addEventListener('change', persist);
-chesscomCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', persist));
-lichessCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', persist));
+chesscomCheckboxInputs.forEach((input) => input.addEventListener('change', persist));
+lichessCheckboxInputs.forEach((input) => input.addEventListener('change', persist));
