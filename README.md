@@ -2,14 +2,14 @@
 
 A browser extension to stop you from impulsively starting a chess game.
 
-1. Redirect games to puzzles
-- When the user attempts to start a live chess game (on chess.com or lichess.org), they are redirected to the lichess puzzles page instead
-- possible configuration:
-    - only for certain time controls (e.g. redirect on blitz/bullet but allow rapid/daily games)
-    - redirect location
-        - could simply just block instead of redirect
-        - could also optionally redirect to lichess puzzles, chesscom puzzles, chesscom lessons, chessable etc.
-            - should be configurable, but with a reasonable default (lichess puzzles)
+Redirects live games to puzzles. When you try to start a live game on
+chess.com or lichess.org, you're sent to that site's puzzles page instead.
+
+Configurable from the toolbar popup:
+- which time controls to block, per site (default: bullet and blitz;
+  rapid and daily/correspondence are allowed)
+- where to redirect, per site: Lichess puzzles/practice, Chess.com
+  puzzles/lessons, or an empty page (defaults: each site's own puzzles)
 
 ## How it works
 
@@ -22,11 +22,13 @@ background script at all — just two content scripts and a popup.
   game ends (see `utils/chesscom/triggers.ts` for the full list of entry
   points found so far, each confirmed against the live site). This runs
   *before* matchmaking, so it never pairs you with a real opponent just to
-  then redirect away. Per-time-class blocking (bullet/blitz always block;
-  rapid configurable by default) is resolved at click time from whatever the
+  then redirect away. Per-time-class blocking (which classes to block is set in the popup; by
+  default bullet and blitz) is resolved at click time from whatever the
   clicked element exposes — a query param, a label, a sibling dropdown, or
   (for Rematch, which has no time control of its own) a sibling "New N min"
   button in the same button group — see `utils/chesscom/time-class.ts`.
+  Labels are parsed strictly by unit (`sec`, `min`, `day`); daily games are
+  never blocked.
 - **lichess**: a content script (`entrypoints/lichess.content.ts`)
   intercepts clicks on the homepage "quick pairing" pool (`.lpool[data-id]`
   elements — see `utils/lichess/triggers.ts`), the same before-matchmaking
@@ -43,11 +45,16 @@ script to recognize (see Status below) have *no* interception at all, not a
 weaker fallback — there's no click to hook into once you're past one of
 those, so nothing redirects you.
 
+The one policy is `shouldBlock` in `utils/game-start-guard.ts`: a click whose
+time class can't be determined (malformed label, missing dropdown, ...) is
+always blocked — it fails closed, since this is an anti-impulse tool.
+
 Settings (enabled/disabled, which chess.com time classes and lichess speeds
 to block, and each site's own redirect target — chess.com defaults to
 chess.com puzzles, lichess to lichess puzzles, independently configurable)
 are stored via `browser.storage.sync` and edited from the toolbar popup
-(`entrypoints/popup`).
+(`entrypoints/popup`). The extension makes no network requests and
+collects no data; see [PRIVACY.md](PRIVACY.md).
 
 ## Status: what's actually implemented
 
@@ -106,14 +113,15 @@ works" above for why there's no fallback for these.
 
 - `entrypoints/chesscom.content.ts` — intercepts chess.com's "start game" clicks before matchmaking
 - `entrypoints/lichess.content.ts` — intercepts lichess's pool-pairing clicks before matchmaking
-- `entrypoints/popup/` — toolbar popup UI for settings
+- `entrypoints/popup/` — toolbar popup UI for settings (built from the option lists in `utils/`)
 - `utils/config.ts` — settings schema, defaults (merged in one place), redirect targets, storage read/write
 - `utils/chesscom/triggers.ts` — DOM matching for chess.com's various "start game" buttons/links
 - `utils/lichess/triggers.ts` — DOM matching for lichess's pool-pairing buttons
-- `utils/chesscom/time-class.ts` — chess.com bullet/blitz/rapid classification from base time in seconds
+- `utils/chesscom/time-class.ts` — chess.com bullet/blitz/rapid/daily classification from base time or a duration label
 - `utils/lichess/speed.ts` — lichess ultraBullet/bullet/blitz/rapid/classical classification, sourced from lila
 - `utils/game-start-guard.ts` — shared click-interception logic and the single `shouldBlock` policy (unknown class fails closed)
 - `utils/**/*.test.ts` — vitest unit tests (`npm test`)
+- `PRIVACY.md` — privacy policy (linked from the store listings)
 
 ## Developing
 
