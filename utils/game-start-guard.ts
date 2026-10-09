@@ -1,24 +1,35 @@
-import { DEFAULT_CONFIG, REDIRECT_URLS, getConfig, type Config, type RedirectTarget } from './config';
+import {
+  getConfig,
+  redirectUrl,
+  withDefaults,
+  type Config,
+} from './config';
 
-// Shared by every per-site content script (chesscom.content.ts,
-// lichess.content.ts, ...): cache config locally (storage reads are async,
-// but we must preventDefault synchronously inside the click handler — by
-// the time an `await getConfig()` resolved, the page's own handler would
-// already have started matchmaking), intercept the click in the capture
-// phase before the page sees it, and either redirect or let it through.
-export function installGameStartGuard<Match>(options: {
-  matchClick: (target: HTMLElement | null) => Match | null;
-  shouldBlock: (config: Config, match: Match) => boolean;
-  redirectTarget: (config: Config) => RedirectTarget;
-}): void {
-  let config: Config = DEFAULT_CONFIG;
-  getConfig().then((c) => {
-    config = c;
-  });
+type StringListKey = {
+  [K in keyof Config]: Config[K] extends string[] ? K : never;
+}[keyof Config];
+type RedirectKey = 'chesscomRedirectTarget' | 'lichessRedirectTarget';
+
+// The single policy: a class we couldn't determine is always blocked (fail
+// closed); otherwise block exactly what the user listed.
+export function shouldBlock(blocked: readonly string[], cls: string): boolean {
+  return cls === 'unknown' || blocked.includes(cls);
+}
+
+// Shared by every per-site content script. The click is the one decision
+// point: `matchClick` maps it to a time-class string, 'unknown', or null
+// (not a game-start control). Config is loaded *before* the listener is
+// installed — it must be read synchronously inside the click handler (an
+// `await` there would let the page's own handler start matchmaking first),
+// and we never act on placeholder defaults.
+export async function installGameStartGuard(options: {
+  matchClick: (target: HTMLElement | null) => string | null;
+  blockedKey: StringListKey;
+  redirectKey: RedirectKey;
+}): Promise<void> {
+  let config = await getConfig();
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'sync' && changes.config) {
-      config = { ...DEFAULT_CONFIG, ...(changes.config.newValue as Partial<Config>) };
-    }
+    if (area === 'sync' && changes.config) config = withDefaults(changes.config.newValue);
   });
 
   document.addEventListener(
@@ -26,16 +37,15 @@ export function installGameStartGuard<Match>(options: {
     (event) => {
       if (!config.enabled) return;
 
-      const target = event.target as HTMLElement | null;
-      const match = options.matchClick(target);
-      if (!match) return;
-      if (!options.shouldBlock(config, match)) return;
+      const cls = options.matchClick(event.target as HTMLElement | null);
+      if (cls === null) return;
+      if (!shouldBlock(config[options.blockedKey], cls)) return;
 
       // Capture phase + stopImmediatePropagation: runs before the page's
       // own click handler, so matchmaking never starts.
       event.preventDefault();
       event.stopImmediatePropagation();
-      window.location.href = REDIRECT_URLS[options.redirectTarget(config)];
+      window.location.href = redirectUrl(config[options.redirectKey]);
     },
     true, // capture
   );

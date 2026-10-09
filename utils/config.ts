@@ -1,12 +1,19 @@
-import type { TimeClass } from './time-class';
-import type { LichessSpeed } from './lichess-speed';
+import type { TimeClass } from './chesscom/time-class';
+import type { LichessSpeed } from './lichess/speed';
 
-export type RedirectTarget =
-  | 'lichess-puzzles'
-  | 'lichess-practice'
-  | 'chesscom-puzzles'
-  | 'chesscom-lessons'
-  | 'block';
+export const REDIRECT_TARGETS = [
+  { value: 'lichess-puzzles', label: 'Lichess puzzles', url: 'https://lichess.org/training' },
+  { value: 'lichess-practice', label: 'Lichess practice', url: 'https://lichess.org/practice' },
+  {
+    value: 'chesscom-puzzles',
+    label: 'Chess.com puzzles',
+    url: 'https://www.chess.com/puzzles/rated',
+  },
+  { value: 'chesscom-lessons', label: 'Chess.com lessons', url: 'https://www.chess.com/lessons' },
+  { value: 'block', label: 'Empty page', url: 'about:blank' },
+] as const;
+
+export type RedirectTarget = (typeof REDIRECT_TARGETS)[number]['value'];
 
 export interface Config {
   enabled: boolean;
@@ -16,13 +23,11 @@ export interface Config {
   chesscomRedirectTarget: RedirectTarget;
   lichessRedirectTarget: RedirectTarget;
   // Which time classes/speeds to redirect away from, per site (each site
-  // has its own vocabulary and thresholds — see utils/time-class.ts and
-  // utils/lichess-speed.ts). A class not in the relevant set is allowed to
-  // start normally (e.g. leave 'rapid' out to allow rapid games through).
-  // Triggers where the class can't be determined (see
-  // utils/chesscom-triggers.ts / utils/lichess-triggers.ts) are always
-  // blocked regardless of these sets — fail closed, since this is an
-  // anti-impulse tool.
+  // has its own vocabulary and thresholds). A class not in the relevant
+  // list is allowed to start normally (e.g. leave 'rapid' out to allow
+  // rapid games through). A click whose class can't be determined is always
+  // blocked regardless of these lists — fail closed, since this is an
+  // anti-impulse tool. See shouldBlock in utils/game-start-guard.ts.
   blockedChesscomTimeClasses: TimeClass[];
   blockedLichessSpeeds: LichessSpeed[];
 }
@@ -35,32 +40,21 @@ export const DEFAULT_CONFIG: Config = {
   blockedLichessSpeeds: ['ultraBullet', 'bullet', 'blitz'],
 };
 
-export const REDIRECT_URLS: Record<RedirectTarget, string> = {
-  'lichess-puzzles': 'https://lichess.org/training',
-  'lichess-practice': 'https://lichess.org/practice',
-  'chesscom-puzzles': 'https://www.chess.com/lessons/all-lessons',
-  'chesscom-lessons': 'https://www.chess.com/lessons',
-  block: 'about:blank',
-};
+export function redirectUrl(target: RedirectTarget): string {
+  return REDIRECT_TARGETS.find((t) => t.value === target)!.url;
+}
+
+// The one place stored settings are merged with defaults (missing keys fall
+// back; there is no other source of defaults).
+export function withDefaults(stored: unknown): Config {
+  return { ...DEFAULT_CONFIG, ...(stored as Partial<Config> | undefined) };
+}
 
 export async function getConfig(): Promise<Config> {
   const stored = await browser.storage.sync.get('config');
-  return { ...DEFAULT_CONFIG, ...(stored.config as Partial<Config> | undefined) };
+  return withDefaults(stored.config);
 }
 
 export async function setConfig(config: Config): Promise<void> {
   await browser.storage.sync.set({ config });
-}
-
-export function shouldBlockChesscomTimeClass(
-  config: Config,
-  timeClass: TimeClass | 'unknown',
-): boolean {
-  if (timeClass === 'unknown') return true; // fail closed
-  return config.blockedChesscomTimeClasses.includes(timeClass);
-}
-
-export function shouldBlockLichessSpeed(config: Config, speed: LichessSpeed | 'unknown'): boolean {
-  if (speed === 'unknown') return true; // fail closed
-  return config.blockedLichessSpeeds.includes(speed);
 }

@@ -3,7 +3,7 @@
   "description": "Stops you from impulsively starting a live chess game — redirects to puzzles instead.",
   "license": "MIT",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -13,11 +13,14 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "test": "vitest run"
   },
   "devDependencies": {
+    "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
     "vite": "^8.1.5",
+    "vitest": "^5.0.3",
     "web-ext": "^10.5.0",
     "wxt": "^0.21.3"
   }

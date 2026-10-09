@@ -1,4 +1,8 @@
-import { classifyByBaseSeconds, type TimeClass } from './time-class';
+import {
+  classifyByBaseParam,
+  classifyByDurationLabel,
+  type ChesscomClass,
+} from './time-class';
 
 // chess.com has several different code paths that start a live game,
 // confirmed live 2026-10-01:
@@ -21,29 +25,20 @@ import { classifyByBaseSeconds, type TimeClass } from './time-class';
 //
 // There are likely more entry points we haven't found yet (accept an
 // incoming challenge, puzzle-rush-adjacent promos, ...). This is
-// intentionally not exhaustive — utils/game-urls.ts's /game/<id> URL match
-// in background.ts is the backstop for anything that slips past this list.
-const NEW_GAME_SAME_CONTROL_LABEL = /^new\s+(\d+)\s*min/i;
+// intentionally not exhaustive: with no click, there is nothing to hook.
+const NEW_GAME_SAME_CONTROL_LABEL = /^new\s+(\d.*)$/i;
 
-export interface ChesscomGameStartMatch {
-  timeClass: TimeClass | 'unknown';
-}
-
-function parseTimeClassFromDropdownLabel(label: string): TimeClass | 'unknown' {
+function parseTimeClassFromDropdownLabel(label: string): ChesscomClass {
   const category = /\((bullet|blitz|rapid)\)/i.exec(label)?.[1];
-  if (category) return category.toLowerCase() as TimeClass;
-
-  const minutes = /^(\d+)/.exec(label.trim())?.[1];
-  if (minutes) return classifyByBaseSeconds(Number(minutes) * 60);
-
-  return 'unknown';
+  if (category) return category.toLowerCase() as ChesscomClass;
+  return classifyByDurationLabel(label);
 }
 
 // The Start Game button itself carries no time-control info — it's a
 // sibling dropdown that does. Not scoped to a specific wrapper class since
 // /play/online and the "New Game" tab don't share one; only one such
 // dropdown should ever be visible at a time.
-function currentlySelectedTimeClass(): TimeClass | 'unknown' {
+function currentlySelectedTimeClass(): ChesscomClass {
   const label = document.querySelector('.cc-dropdown-button-label')?.textContent;
   return label ? parseTimeClassFromDropdownLabel(label) : 'unknown';
 }
@@ -51,21 +46,21 @@ function currentlySelectedTimeClass(): TimeClass | 'unknown' {
 // Rematch has no time control of its own — it implicitly reuses the current
 // game's, which happens to already be spelled out on its sibling "New <N>
 // min" button in the same button group.
-function siblingNewGameTimeClass(rematchButton: Element): TimeClass | 'unknown' {
+function siblingNewGameTimeClass(rematchButton: Element): ChesscomClass {
   const container = rematchButton.parentElement;
   if (!container) return 'unknown';
 
   for (const sibling of container.querySelectorAll('button')) {
     if (sibling === rematchButton) continue;
     const label = (sibling.getAttribute('aria-label') ?? sibling.textContent ?? '').trim();
-    const minutes = NEW_GAME_SAME_CONTROL_LABEL.exec(label)?.[1];
-    if (minutes) return classifyByBaseSeconds(Number(minutes) * 60);
+    const duration = NEW_GAME_SAME_CONTROL_LABEL.exec(label)?.[1];
+    if (duration) return classifyByDurationLabel(duration);
   }
 
   return 'unknown';
 }
 
-export function matchChesscomGameStartClick(target: HTMLElement | null): ChesscomGameStartMatch | null {
+export function matchChesscomGameStartClick(target: HTMLElement | null): ChesscomClass | null {
   if (!target) return null;
 
   const link = target.closest('a[href*="/play/online/new"]');
@@ -75,9 +70,7 @@ export function matchChesscomGameStartClick(target: HTMLElement | null): Chessco
       const url = new URL(href, location.origin);
       const action = url.searchParams.get('action') ?? '';
       if (/live/i.test(action)) {
-        const base = url.searchParams.get('base');
-        const timeClass = base ? classifyByBaseSeconds(Number(base)) : 'unknown';
-        return { timeClass };
+        return classifyByBaseParam(url.searchParams.get('base'));
       }
     }
   }
@@ -88,17 +81,15 @@ export function matchChesscomGameStartClick(target: HTMLElement | null): Chessco
     const normalized = label.toLowerCase();
 
     if (normalized === 'start game') {
-      return { timeClass: currentlySelectedTimeClass() };
+      return currentlySelectedTimeClass();
     }
 
     if (normalized === 'rematch') {
-      return { timeClass: siblingNewGameTimeClass(button) };
+      return siblingNewGameTimeClass(button);
     }
 
     const newGameMatch = NEW_GAME_SAME_CONTROL_LABEL.exec(label);
-    if (newGameMatch) {
-      return { timeClass: classifyByBaseSeconds(Number(newGameMatch[1]) * 60) };
-    }
+    if (newGameMatch) return classifyByDurationLabel(newGameMatch[1]!);
   }
 
   return null;

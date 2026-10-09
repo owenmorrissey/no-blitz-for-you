@@ -1,4 +1,4 @@
-import { classifySpeed, type LichessSpeed } from './lichess-speed';
+import { classifySpeed, type LichessSpeed } from './speed';
 
 // lichess's homepage "quick pairing" pool, sourced from lila's own code
 // (ui/lobby/src/view/pools.ts, confirmed against master 2026-10-01):
@@ -18,15 +18,10 @@ import { classifySpeed, type LichessSpeed } from './lichess-speed';
 // handled: challenging a friend, accepting an incoming challenge, and the
 // "#pool/<id>" URL-hash auto-join (joinPoolFromLocationHash in lila's
 // ctrl.ts) used by shared pool links, none of which are a click on a
-// ".lpool" element. utils/game-urls.ts's URL-based backstop in
-// background.ts is the catch-all for anything that slips past this.
+// ".lpool" element.
 const POOL_ID_PATTERN = /^(\d+)\+(\d+)$/;
 
-export interface LichessGameStartMatch {
-  speed: LichessSpeed | 'unknown';
-}
-
-export function matchLichessGameStartClick(target: HTMLElement | null): LichessGameStartMatch | null {
+export function matchLichessGameStartClick(target: HTMLElement | null): LichessSpeed | 'unknown' | null {
   if (!target) return null;
 
   const pool = target.closest<HTMLElement>('.lpool[data-id]');
@@ -36,9 +31,8 @@ export function matchLichessGameStartClick(target: HTMLElement | null): LichessG
   if (!id || id === 'custom') return null; // opens a modal, doesn't start a game itself
 
   const match = POOL_ID_PATTERN.exec(id);
-  if (!match) return { speed: 'unknown' };
+  if (!match) return 'unknown';
 
   const [, limitMinutes, incrementSeconds] = match;
-  const speed = classifySpeed(Number(limitMinutes) * 60, Number(incrementSeconds));
-  return { speed };
+  return classifySpeed(Number(limitMinutes) * 60, Number(incrementSeconds));
 }

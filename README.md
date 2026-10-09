@@ -19,20 +19,20 @@ background script at all — just two content scripts and a popup.
 - **chess.com**: a content script (`entrypoints/chesscom.content.ts`)
   intercepts the click that starts a game — on `/play/online`, the home page
   quick-start widget, and the "Rematch"/"New Game" buttons shown after a
-  game ends (see `utils/chesscom-triggers.ts` for the full list of entry
+  game ends (see `utils/chesscom/triggers.ts` for the full list of entry
   points found so far, each confirmed against the live site). This runs
   *before* matchmaking, so it never pairs you with a real opponent just to
   then redirect away. Per-time-class blocking (bullet/blitz always block;
   rapid configurable by default) is resolved at click time from whatever the
   clicked element exposes — a query param, a label, a sibling dropdown, or
   (for Rematch, which has no time control of its own) a sibling "New N min"
-  button in the same button group — see `utils/time-class.ts`.
+  button in the same button group — see `utils/chesscom/time-class.ts`.
 - **lichess**: a content script (`entrypoints/lichess.content.ts`)
   intercepts clicks on the homepage "quick pairing" pool (`.lpool[data-id]`
-  elements — see `utils/lichess-triggers.ts`), the same before-matchmaking
+  elements — see `utils/lichess/triggers.ts`), the same before-matchmaking
   approach as chess.com. The pool's `data-id` is literally
   `"<limitMinutes>+<incrementSeconds>"`, and the bullet/blitz/rapid/
-  classical classification (`utils/lichess-speed.ts`) is copied directly
+  classical classification (`utils/lichess/speed.ts`) is copied directly
   from lichess's own open-source formula (`clockToSpeed` in
   lichess-org/lila), not guessed.
 
@@ -107,12 +107,13 @@ works" above for why there's no fallback for these.
 - `entrypoints/chesscom.content.ts` — intercepts chess.com's "start game" clicks before matchmaking
 - `entrypoints/lichess.content.ts` — intercepts lichess's pool-pairing clicks before matchmaking
 - `entrypoints/popup/` — toolbar popup UI for settings
-- `utils/config.ts` — settings schema + storage read/write
-- `utils/chesscom-triggers.ts` — DOM matching for chess.com's various "start game" buttons/links
-- `utils/lichess-triggers.ts` — DOM matching for lichess's pool-pairing buttons
-- `utils/time-class.ts` — chess.com bullet/blitz/rapid classification from base time in seconds
-- `utils/lichess-speed.ts` — lichess ultraBullet/bullet/blitz/rapid/classical classification, sourced from lila
-- `utils/game-start-guard.ts` — shared click-interception logic used by both content scripts
+- `utils/config.ts` — settings schema, defaults (merged in one place), redirect targets, storage read/write
+- `utils/chesscom/triggers.ts` — DOM matching for chess.com's various "start game" buttons/links
+- `utils/lichess/triggers.ts` — DOM matching for lichess's pool-pairing buttons
+- `utils/chesscom/time-class.ts` — chess.com bullet/blitz/rapid classification from base time in seconds
+- `utils/lichess/speed.ts` — lichess ultraBullet/bullet/blitz/rapid/classical classification, sourced from lila
+- `utils/game-start-guard.ts` — shared click-interception logic and the single `shouldBlock` policy (unknown class fails closed)
+- `utils/**/*.test.ts` — vitest unit tests (`npm test`)
 
 ## Developing
 
@@ -131,6 +132,7 @@ To load it manually instead:
 
 ```sh
 npm run compile        # typecheck
+npm test               # unit tests (vitest)
 npm run zip             # Chrome production zip, in .output/
 npm run zip:firefox     # Firefox production zip, in .output/
 ```
@@ -173,11 +175,5 @@ point. Next steps, roughly in priority order:
   friend, accept an incoming challenge, puzzle-rush-adjacent promos, ...
   (anything not listed in the chess.com Status section above). Currently
   none of these are blocked at all either.
-- **Config-load race at content-script startup.** `installGameStartGuard`
-  (`utils/game-start-guard.ts`) uses `DEFAULT_CONFIG` until the async
-  `getConfig()` resolves. A click in that window would use defaults instead
-  of your actual settings. The window is tiny in practice (a local storage
-  read, resolved well before a human can click anything), but it's not
-  nothing.
 - Chesscom lessons/chessable as additional redirect target options.
 - Publish to Chrome Web Store / Firefox Add-ons (needs developer accounts, listing assets, review).
