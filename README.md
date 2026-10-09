@@ -167,13 +167,18 @@ install) and `*-sources.zip` (everything below) automatically.
 See the "Status" section above for the precise current behavior per entry
 point. Next steps, roughly in priority order:
 
-- **lichess: cover more entry points.** Custom game modal, challenge a
-  friend, accept an incoming challenge, `#pool/<id>` hash auto-join — see
-  the lichess Status section above for specifics on each. Currently none of
-  these are blocked at all.
-- **chess.com: cover more entry points** in the same vein — challenge a
-  friend, accept an incoming challenge, puzzle-rush-adjacent promos, ...
-  (anything not listed in the chess.com Status section above). Currently
-  none of these are blocked at all either.
-- Chesscom lessons/chessable as additional redirect target options.
-- Publish to Chrome Web Store / Firefox Add-ons (needs developer accounts, listing assets, review).
+- **Publish.** Chrome Web Store: listing in progress (draft created;
+  needs screenshots, privacy policy URL, review). Firefox AMO: submit
+  1.0.0 as an update.
+- **Cover non-click entry points** (the `#pool/<id>` hash auto-join on
+  lichess, challenge links, accepting an incoming challenge, on both
+  sites). A click listener can't see these. Ship click-only first; if they
+  matter in practice, add a stateless page-level check in the content
+  script: on a game page, read the time control from the page, apply the
+  same `shouldBlock`, and only for ongoing games the user is playing (not
+  finished or spectated ones). It needs SPA URL-change detection, and costs
+  being paired with an opponent before the redirect.
+- **Cover more click entry points** that open a modal or aren't recognized
+  yet: lichess "Custom" game, challenge a friend; chess.com challenge a
+  friend, puzzle-rush-adjacent promos, ... (see the Status sections).
+- Chessable as an additional redirect target option.
